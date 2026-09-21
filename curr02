@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🇰🇷 韓幣智慧付款與找零助手</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Noto Sans TC', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#FFF3EC',   // 極淺橘背景
+              100: '#F4B28F',  // 淺橘
+              500: '#E98B5B',  // 柔霧橘 (主色)
+              600: '#B85C35',  // 深橘
+            },
+            cream: '#FFFBF8',   // 奶油白背景
+            select: {
+              bg: '#EEF2FF',     // 選取背景 (淡紫)
+              border: '#818CF8', // 選取外框 (藍紫)
+              text: '#4F46E5',   // 選取文字 (深藍紫)
+            },
+            success: {
+              bg: '#ECFDF5',     // 成功背景
+              border: '#86E7B8', // 成功外框
+              text: '#2F855F',   // 成功文字
+            },
+            warning: {
+              bg: '#FFFBEB',     // 提醒背景
+              border: '#FCD34D', // 提醒外框
+              text: '#D97706',   // 提醒文字
+            },
+            main: {
+              text: '#172033',   // 主要文字
+              sub: '#64748B',    // 次要文字
+              muted: '#94A3B8',  // 未選/弱化文字
+              border: '#DCE3ED', // 一般外框
+            },
+            // 韓國貨幣面額色彩規範
+            krw: {
+              '50k': '#D97706',  // 50,000 ₩ 金黃色
+              '10k': '#15803D',  // 10,000 ₩ 翡翠綠
+              '5k':  '#C2410C',  // 5,000 ₩  赭石橘
+              '1k':  '#2563EB',  // 1,000 ₩  藍色
+              '500': '#475569',  // 500 ₩    深灰銀硬幣
+              '100': '#64748B'   // 100 ₩    淺灰銀硬幣
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      background-color: #FFF3EC;
+    }
+    .card-shadow {
+      box-shadow: 0 4px 18px -2px rgba(233, 139, 91, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+    }
+    .active-scale:active {
+      transform: scale(0.96);
+    }
+    input:focus {
+      outline: none;
+    }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
+</head>
+<body class="h-full text-main-text font-sans flex justify-center items-start sm:items-center p-0 sm:p-4 min-h-screen">
+
+  <div class="w-full max-w-md bg-cream sm:rounded-3xl shadow-xl overflow-hidden border border-main-border min-h-screen sm:min-h-0 flex flex-col justify-between">
+    
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-brand-500 to-brand-600 text-white p-4 text-center relative shadow-sm">
+      <div class="flex justify-between items-center mb-1">
+        <span id="countryBadge" class="text-[11px] font-bold px-2.5 py-0.5 bg-white/20 text-white rounded-full flex items-center gap-1">
+          <i class="fa-solid fa-plane-departure text-[10px]"></i> 韓國旅遊隨身助手
+        </span>
+        
+        <!-- Right Header Menu: Exchange Rate & Country Menu Button -->
+        <div class="flex items-center gap-1.5">
+          <!-- Exchange Rate Toggle Button -->
+          <button id="toggleRateBtn" class="text-xs bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-full transition flex items-center gap-1 border border-white/20 active-scale">
+            <i class="fa-solid fa-pen-to-square text-[11px]"></i> 
+            <span id="currentRateText">匯率：1 TWD = 42 KRW</span>
+          </button>
+
+          <!-- Country Selection Menu Button -->
+          <button id="openCountryMenuBtn" class="text-xs bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-full transition flex items-center gap-1 border border-white/20 active-scale">
+            <i class="fa-solid fa-globe text-[11px]"></i>
+            <span id="selectedCountryText">🇰🇷 韓國</span>
+            <i class="fa-solid fa-chevron-down text-[9px]"></i>
+          </button>
+        </div>
+      </div>
+
+      <h1 id="appMainTitle" class="text-xl sm:text-2xl font-black text-white tracking-wide flex items-center justify-center gap-2 mt-1">
+        <span>🇰🇷</span> 韓幣智慧付款助手
+      </h1>
+      
+      <!-- Country Selection Dropdown Menu Panel -->
+      <div id="countryMenuPanel" class="hidden absolute top-12 right-4 z-50 w-52 p-2 bg-white rounded-2xl border border-brand-100 text-left text-xs shadow-xl text-main-text space-y-1">
+        <div class="px-2 py-1.5 font-extrabold text-main-sub text-[11px] border-b border-cream flex justify-between items-center">
+          <span><i class="fa-solid fa-earth-asia text-brand-500 mr-1"></i> 選擇目的地國家</span>
+          <button id="closeCountryMenuBtn" class="text-main-muted hover:text-main-sub p-1"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <button class="country-opt-btn w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-brand-50 transition font-bold text-main-text active-scale" data-country="KRW">
+          <span class="text-xs">韓國 (KRW 韓幣)</span>
+          <i id="check-KRW" class="fa-solid fa-check text-brand-500"></i>
+        </button>
+        <button class="country-opt-btn w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-brand-50 transition font-bold text-main-text active-scale" data-country="VND">
+          <span class="text-xs">越南 (VND 越南盾)</span>
+          <i id="check-VND" class="fa-solid fa-check text-brand-500 hidden"></i>
+        </button>
+      </div>
+
+      <!-- Editable Exchange Rate Panel Modal -->
+      <div id="ratePanel" class="hidden mt-3 p-3 bg-white rounded-2xl border border-brand-100 text-left text-xs transition-all shadow-xl text-main-text">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold text-brand-600 flex items-center gap-1">
+            <i class="fa-solid fa-calculator text-brand-500"></i> <span id="ratePanelTitle">設定換錢所匯率</span>
+          </span>
+          <button id="closeRateBtn" class="text-main-muted hover:text-main-sub p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-main-sub whitespace-nowrap">1 台幣 (TWD) =</span>
+          <input type="number" id="customRateInput" value="42" class="w-20 bg-cream border border-main-border rounded-lg px-2 py-1.5 text-center text-main-text font-bold text-sm focus:border-brand-500">
+          <span id="rateCurrencyUnit" class="text-main-sub">KRW (₩)</span>
+          <button id="saveRateBtn" class="bg-brand-500 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold ml-auto active-scale transition">儲存</button>
+        </div>
+        <div id="presetRatesContainer" class="mt-2 pt-2 border-t border-cream flex gap-1.5 text-[10px] text-main-sub overflow-x-auto">
+          <!-- Preset buttons rendered dynamically -->
+        </div>
+      </div>
+    </header>
+
+    <main class="p-4 space-y-3.5 flex-1 overflow-y-auto bg-cream">
+
+      <!-- SECTION 1: Input Amount & Strategy Tabs -->
+      <section class="bg-white rounded-2xl p-4 card-shadow border border-main-border">
+        <div class="flex justify-between items-center mb-1">
+          <label for="krwInput" id="inputLabel" class="text-xs font-extrabold text-main-text tracking-wide flex items-center gap-1.5">
+            <i class="fa-solid fa-tag text-brand-500"></i> 今天要付多少韓元？
+          </label>
+          <div class="flex items-center gap-2">
+            <button id="toggleThousandBtn" class="hidden text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full transition active-scale flex items-center gap-1">
+              <i class="fa-solid fa-check text-[9px]"></i> ,000 千位模式
+            </button>
+            <button id="clearBtn" class="text-xs text-main-muted hover:text-rose-500 transition font-bold">
+              <i class="fa-solid fa-rotate-left text-[10px]"></i> 清空
+            </button>
+          </div>
+        </div>
+
+        <!-- Full Amount Input Box -->
+        <div class="flex items-center bg-cream border-2 border-main-border focus-within:border-brand-500 rounded-2xl py-2 px-3.5 transition my-1.5">
+          <input type="text" id="krwInput" placeholder="0" inputmode="numeric" 
+                 class="w-full bg-transparent text-3xl font-black text-right tracking-tight text-main-text outline-none">
+          <span id="thousandSuffix" class="text-3xl font-black text-brand-500 whitespace-nowrap select-none hidden">,000</span>
+          <span id="currencySymbol" class="text-3xl font-black text-main-text whitespace-nowrap select-none pl-1 text-brand-500">
+            ₩
+          </span>
+        </div>
+
+        <!-- Fast Increment Buttons (Dynamically rendered) -->
+        <div id="fastBtnContainer" class="grid grid-cols-6 gap-1 my-2">
+          <!-- Rendered via JS -->
+        </div>
+
+        <!-- TWD Sub-info & Korea/Vietnam Specific Tips -->
+        <div class="flex flex-col gap-1 text-xs border-t border-cream pt-2 mt-1">
+          <div class="flex justify-between items-center text-main-sub">
+            <span>折合台幣估算：</span>
+            <span id="twdDisplay" class="font-extrabold text-main-text text-sm">NT$ 0</span>
+          </div>
+
+          <!-- Dynamic Tax Refund Alert Badge -->
+          <div id="taxRefundTip" class="hidden text-[11px] p-2 rounded-xl flex items-center justify-between mt-1 transition-all">
+            <span id="taxRefundText" class="font-bold flex items-center gap-1">
+              <i class="fa-solid fa-receipt"></i> 門檻提示
+            </span>
+            <span id="taxRefundEst" class="font-extrabold px-1.5 py-0.5 rounded text-[10px]">預估提示</span>
+          </div>
+        </div>
+
+        <!-- Strategy Selector Tabs -->
+        <div class="space-y-2 mt-3">
+          <div class="text-[11px] font-bold text-main-sub flex justify-between items-center">
+            <span>選擇付款策略：</span>
+            <span id="currentModeLabel" class="text-select-text font-extrabold text-[11px]">💡 建議付款 (標準湊錢)</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 bg-cream p-1.5 rounded-xl text-xs border border-main-border">
+            <button id="modeSuggestBtn" class="pay-mode-btn py-2 px-2 rounded-lg font-extrabold text-select-text bg-select-bg border-2 border-select-border shadow-2xs transition text-center active-scale" data-mode="suggested">
+              💡 建議付款
+            </button>
+            <button id="modeFastBtn" class="pay-mode-btn py-2 px-2 rounded-lg font-medium text-main-sub bg-white border border-main-border hover:bg-cream transition text-center active-scale" data-mode="fastest">
+              ⚡ 最快付款
+            </button>
+            <button id="modeBigBtn" class="pay-mode-btn py-2 px-2 rounded-lg font-medium text-main-sub bg-white border border-main-border hover:bg-cream transition text-center active-scale" data-mode="big">
+              💵 只有大鈔
+            </button>
+            <button id="modeSmallBtn" class="pay-mode-btn py-2 px-2 rounded-lg font-medium text-main-sub bg-white border border-main-border hover:bg-cream transition text-center active-scale" data-mode="small">
+              🪙 消化硬幣零錢
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-2xl p-4 card-shadow border border-main-border">
+        <div class="flex justify-between items-center mb-2.5">
+          <label class="text-xs font-extrabold text-main-text tracking-wide flex items-center gap-1.5">
+            <i class="fa-solid fa-coins text-brand-500"></i> 我的付款組合 (紙鈔 + 硬幣)
+          </label>
+          <button id="resetPaidBtn" class="text-[11px] text-main-muted hover:text-main-sub font-bold transition">
+            重設張數
+          </button>
+        </div>
+
+        <!-- Live Status Card -->
+        <div id="liveStatusCard" class="p-3.5 rounded-2xl border bg-cream border-main-border transition-all mb-3 text-center">
+          <div class="text-xs text-main-sub mb-0.5">你共拿出：<strong id="livePaidTotal" class="text-main-text text-base font-black">0 ₩</strong></div>
+          <div id="liveStatusMessage" class="text-xs font-semibold text-main-muted mt-1">
+            請於上方輸入金額或調整下方鈔票與硬幣
+          </div>
+
+          <!-- Change Detail Breakdown Box -->
+          <div id="changeVerificationDetail" class="hidden mt-2.5 pt-2.5 border-t border-success-border/50 text-xs space-y-1">
+            <div class="font-extrabold flex items-center justify-center gap-1.5 text-success-text">
+              <i class="fa-solid fa-hand-holding-dollar"></i> 點收找零：
+            </div>
+            <div id="changeDetailList" class="font-medium text-main-text"></div>
+          </div>
+        </div>
+
+        <!-- 2-Column Grid for Banknote & Coin Counters -->
+        <div class="grid grid-cols-2 gap-2" id="payCounterGrid">
+          <!-- Dynamically populated rows -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-main-border p-2.5 text-center text-[10px] text-main-muted">
+      <p class="flex items-center justify-center gap-1">
+        💡 提示：可切換韓幣 (KRW) / 越南盾 (VND)，並新增至手機主畫面使用
+      </p>
+    </footer>
+
+  </div>
+
+  <script>
+    const currencyConfigs = {
+      KRW: {
+        flag: "🇰🇷",
+        name: "韓幣",
+        code: "KRW",
+        symbol: "₩",
+        subtitle: "韓國旅遊隨身助手",
+        inputLabel: "今天要付多少韓元？",
+        bigBtnLabel: "💵 只有五萬韓元",
+        defaultRate: 42,
+        presets: [
+          { name: "大使館 42.0", rate: 42 },
+          { name: "一品香 42.5", rate: 42.5 },
+          { name: "刷卡 41.5", rate: 41.5 }
+        ],
+        fastBtns: [
+          { label: "+5萬", add: 50000, cls: "bg-amber-50 border-amber-200 text-amber-800" },
+          { label: "+1萬", add: 10000, cls: "bg-emerald-50 border-emerald-200 text-emerald-800" },
+          { label: "+5千", add: 5000, cls: "bg-orange-50 border-orange-200 text-orange-800" },
+          { label: "+1千", add: 1000, cls: "bg-blue-50 border-blue-200 text-blue-800" },
+          { label: "+5百", add: 500, cls: "bg-slate-100 border-slate-300 text-slate-700" },
+          { label: "+1百", add: 100, cls: "bg-slate-100 border-slate-300 text-slate-700" }
+        ],
+        denoms: [
+          { key: '50k', val: 50000, label: "50,000", fullLabel: "50,000 ₩", type: "paper", tagBg: "bg-amber-600 text-white" },
+          { key: '10k', val: 10000, label: "10,000", fullLabel: "10,000 ₩", type: "paper", tagBg: "bg-emerald-700 text-white" },
+          { key: '5k',  val: 5000,  label: "5,000",  fullLabel: "5,000 ₩",  type: "paper", tagBg: "bg-orange-700 text-white" },
+          { key: '1k',  val: 1000,  label: "1,000",  fullLabel: "1,000 ₩",  type: "paper", tagBg: "bg-blue-600 text-white" },
+          { key: '500w',val: 500,   label: "500",    fullLabel: "500 ₩ 硬幣", type: "coin",  tagBg: "bg-slate-600 text-white" },
+          { key: '100w',val: 100,   label: "100",    fullLabel: "100 ₩ 硬幣", type: "coin",  tagBg: "bg-slate-500 text-white" }
+        ],
+        taxRefundThreshold: 15000
+      },
+      VND: {
+        flag: "🇻🇳",
+        name: "越南盾",
+        code: "VND",
+        symbol: "₫",
+        subtitle: "越南旅遊隨身助手",
+        inputLabel: "今天要付多少越南盾？",
+        bigBtnLabel: "💵 只有50萬大鈔",
+        defaultRate: 780,
+        presets: [
+          { name: "銀樓熱門 780", rate: 780 },
+          { name: "機場換匯 760", rate: 760 },
+          { name: "刷卡 790", rate: 790 }
+        ],
+        fastBtns: [
+          { label: "+50萬", add: 500000, cls: "bg-blue-50 border-blue-200 text-blue-800" },
+          { label: "+20萬", add: 200000, cls: "bg-orange-50 border-orange-200 text-orange-800" },
+          { label: "+10萬", add: 100000, cls: "bg-emerald-50 border-emerald-200 text-emerald-800" },
+          { label: "+5萬", add: 50000, cls: "bg-pink-50 border-pink-200 text-pink-800" },
+          { label: "+2萬", add: 20000, cls: "bg-sky-50 border-sky-200 text-sky-800" },
+          { label: "+1萬", add: 10000, cls: "bg-amber-50 border-amber-200 text-amber-800" }
+        ],
+        denoms: [
+          { key: '500k', val: 500000, label: "500,000", fullLabel: "500,000 ₫", type: "paper", tagBg: "bg-[#2855D9] text-white" },
+          { key: '200k', val: 200000, label: "200,000", fullLabel: "200,000 ₫", type: "paper", tagBg: "bg-[#C94E1B] text-white" },
+          { key: '100k', val: 100000, label: "100,000", fullLabel: "100,000 ₫", type: "paper", tagBg: "bg-[#348747] text-white" },
+          { key: '50k',  val: 50000,  label: "50,000",  fullLabel: "50,000 ₫",  type: "paper", tagBg: "bg-[#C1285B] text-white" },
+          { key: '20k',  val: 20000,  label: "20,000",  fullLabel: "20,000 ₫",  type: "paper", tagBg: "bg-[#368BC5] text-white" },
+          { key: '10k',  val: 10000,  label: "10,000",  fullLabel: "10,000 ₫",  type: "paper", tagBg: "bg-[#B85A17] text-white" },
+          { key: '5k',   val: 5000,   label: "5,000",   fullLabel: "5,000 ₫",   type: "paper", tagBg: "bg-[#6726AE] text-white" },
+          { key: '2k',   val: 2000,   label: "2,000",   fullLabel: "2,000 ₫",   type: "paper", tagBg: "bg-[#6B7280] text-white" },
+          { key: '1k',   val: 1000,   label: "1,000",   fullLabel: "1,000 ₫",   type: "paper", tagBg: "bg-[#9CA3AF] text-white" }
+        ],
+        taxRefundThreshold: 2000000 // 2,000,000 VND
+      }
+    };
+
+    let currentCurrency = 'KRW';
+    let currentRate = 42;
+    let counts = {};
+    let payStrategy = 'suggested';
+    let useThousandMode = false; // True when VND is active by default
+
+    function initApp() {
+      bindEventListeners();
+      switchCurrency('KRW');
+    }
+
+    function switchCurrency(code) {
+      currentCurrency = code;
+      const cfg = currencyConfigs[code];
+      currentRate = cfg.defaultRate;
+      counts = {};
+      cfg.denoms.forEach(d => { counts[d.key] = 0; });
+
+      // Enable thousand mode for VND automatically
+      useThousandMode = (code === 'VND');
+      updateThousandModeUI();
+
+      // Update Header & UI Labels
+      document.getElementById('countryBadge').innerHTML = `<i class="fa-solid fa-plane-departure text-[10px]"></i> ${cfg.subtitle}`;
+      document.getElementById('appMainTitle').innerHTML = `<span>${cfg.flag}</span> ${cfg.name}智慧付款助手`;
+      document.getElementById('selectedCountryText').innerText = `${cfg.flag} ${cfg.name.replace('幣', '').replace('盾', '')}`;
+      document.getElementById('currentRateText').innerText = `匯率：1 TWD = ${currentRate} ${cfg.code}`;
+      document.getElementById('customRateInput').value = currentRate;
+      document.getElementById('rateCurrencyUnit').innerText = `${cfg.code} (${cfg.symbol})`;
+      document.getElementById('inputLabel').innerHTML = `<i class="fa-solid fa-tag text-brand-500"></i> ${cfg.inputLabel}`;
+      document.getElementById('currencySymbol').innerText = cfg.symbol;
+      document.getElementById('modeBigBtn').innerText = cfg.bigBtnLabel;
+
+      // Update Active Country Checkmark
+      document.getElementById('check-KRW').classList.toggle('hidden', code !== 'KRW');
+      document.getElementById('check-VND').classList.toggle('hidden', code !== 'VND');
+
+      // Render Preset Rates
+      const presetsContainer = document.getElementById('presetRatesContainer');
+      presetsContainer.innerHTML = cfg.presets.map(p => `
+        <button class="preset-rate-btn bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded text-brand-600 font-bold whitespace-nowrap active-scale" data-rate="${p.rate}">${p.name}</button>
+      `).join('');
+
+      // Render Fast Increment Buttons
+      const fastContainer = document.getElementById('fastBtnContainer');
+      fastContainer.innerHTML = cfg.fastBtns.map(b => `
+        <button class="add-krw-btn py-1.5 border text-[11px] font-extrabold rounded-lg active-scale transition ${b.cls}" data-add="${b.add}">${b.label}</button>
+      `).join('');
+
+      renderMoneyGrid();
+      document.getElementById('krwInput').value = '';
+      runCalculation();
+    }
+
+    function renderMoneyGrid() {
+      const cfg = currencyConfigs[currentCurrency];
+      const grid = document.getElementById('payCounterGrid');
+      grid.innerHTML = cfg.denoms.map(d => `
+        <div id="card-${d.key}" class="note-card flex items-center justify-between p-1.5 px-2 rounded-xl bg-white border border-main-border hover:border-main-sub transition-all shadow-2xs">
+          <button type="button" class="quick-add-btn px-2 py-1 rounded-lg text-[11px] font-black ${d.tagBg} shadow-2xs text-center whitespace-nowrap active-scale cursor-pointer flex items-center gap-1" data-key="${d.key}">
+            ${d.type === 'coin' ? '<i class="fa-solid fa-circle text-[9px]"></i>' : ''} ${d.fullLabel}
+          </button>
+          <div class="flex items-center gap-1">
+            <button type="button" class="counter-btn w-7 h-7 rounded-lg bg-cream border border-main-border text-main-text font-extrabold text-sm hover:bg-white active-scale flex items-center justify-center transition shadow-2xs" data-key="${d.key}" data-delta="-1">
+              -
+            </button>
+            <span class="w-5 text-center font-bold text-sm text-main-muted transition-all" id="cnt-${d.key}">0</span>
+            <button type="button" class="counter-btn w-7 h-7 rounded-lg bg-cream border border-main-border text-main-text font-extrabold text-sm hover:bg-white active-scale flex items-center justify-center transition shadow-2xs" data-key="${d.key}" data-delta="1">
+              +
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateThousandModeUI() {
+      const thousandSuffix = document.getElementById('thousandSuffix');
+      const toggleBtn = document.getElementById('toggleThousandBtn');
+      if (currentCurrency === 'VND') {
+        toggleBtn.classList.remove('hidden');
+        if (useThousandMode) {
+          thousandSuffix.classList.remove('hidden');
+          toggleBtn.className = "text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full transition active-scale flex items-center gap-1";
+          toggleBtn.innerHTML = `<i class="fa-solid fa-check text-[9px]"></i> ,000 千位模式`;
+        } else {
+          thousandSuffix.classList.add('hidden');
+          toggleBtn.className = "text-[10px] font-bold text-main-muted bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full transition active-scale flex items-center gap-1";
+          toggleBtn.innerHTML = `<i class="fa-solid fa-xmark text-[9px]"></i> 全額模式`;
+        }
+      } else {
+        thousandSuffix.classList.add('hidden');
+        toggleBtn.classList.add('hidden');
+      }
+    }
+
+    function bindEventListeners() {
+      // Country Selection Menu Events
+      const countryMenuPanel = document.getElementById('countryMenuPanel');
+      document.getElementById('openCountryMenuBtn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        document.getElementById('ratePanel').classList.add('hidden');
+        countryMenuPanel.classList.toggle('hidden');
+      });
+      document.getElementById('closeCountryMenuBtn').addEventListener('click', function() {
+        countryMenuPanel.classList.add('hidden');
+      });
+
+      // Country Option Click Delegation
+      countryMenuPanel.addEventListener('click', function(e) {
+        const btn = e.target.closest('.country-opt-btn');
+        if (btn) {
+          const countryCode = btn.getAttribute('data-country');
+          switchCurrency(countryCode);
+          countryMenuPanel.classList.add('hidden');
+        }
+      });
+
+      // Close popups when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('#countryMenuPanel') && !e.target.closest('#openCountryMenuBtn')) {
+          countryMenuPanel.classList.add('hidden');
+        }
+      });
+
+      const krwInput = document.getElementById('krwInput');
+      krwInput.addEventListener('input', function() {
+        let cleanVal = this.value.replace(/[^0-9]/g, '');
+        if (cleanVal) {
+          this.value = parseInt(cleanVal, 10).toLocaleString('en-US');
+        } else {
+          this.value = '';
+        }
+        runCalculation();
+      });
+
+      // Quick Add Fast Buttons (+5萬, +1萬, etc.)
+      document.getElementById('fastBtnContainer').addEventListener('click', function(e) {
+        const btn = e.target.closest('.add-krw-btn');
+        if (btn) {
+          const addVal = parseInt(btn.getAttribute('data-add'), 10);
+          let currentVal = getNumericKrwInput();
+          let newVal = currentVal + addVal;
+          if (useThousandMode) {
+            krwInput.value = Math.floor(newVal / 1000).toLocaleString('en-US');
+          } else {
+            krwInput.value = newVal.toLocaleString('en-US');
+          }
+          runCalculation();
+        }
+      });
+
+      // Toggle Thousand Mode Button
+      document.getElementById('toggleThousandBtn').addEventListener('click', function() {
+        useThousandMode = !useThousandMode;
+        updateThousandModeUI();
+        runCalculation();
+      });
+
+      // Clear Button
+      document.getElementById('clearBtn').addEventListener('click', function() {
+        krwInput.value = '';
+        resetPaidCounts();
+        runCalculation();
+      });
+
+      // Strategy Mode Switch Buttons
+      const modeButtons = document.querySelectorAll('.pay-mode-btn');
+      modeButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+          payStrategy = this.getAttribute('data-mode');
+          
+          modeButtons.forEach(b => {
+            b.className = 'pay-mode-btn py-2 px-2 rounded-lg font-medium text-main-sub bg-white border border-main-border hover:bg-cream transition text-center active-scale';
+          });
+          this.className = 'pay-mode-btn py-2 px-2 rounded-lg font-extrabold text-select-text bg-select-bg border-2 border-select-border shadow-2xs transition text-center active-scale';
+
+          const cfg = currencyConfigs[currentCurrency];
+          const labelEl = document.getElementById('currentModeLabel');
+          if (payStrategy === 'suggested') {
+            labelEl.innerText = '💡 建議付款 (標準湊錢)';
+          } else if (payStrategy === 'fastest') {
+            labelEl.innerText = '⚡ 最快付款 (最少張數)';
+          } else if (payStrategy === 'big') {
+            labelEl.innerText = cfg.bigBtnLabel;
+          } else if (payStrategy === 'small') {
+            labelEl.innerText = '🪙 消化小額/硬幣';
+          }
+
+          runCalculation();
+        });
+      });
+
+      // Counter Grid Event Delegation (+ / - and Badge Tap)
+      document.getElementById('payCounterGrid').addEventListener('click', function(e) {
+        const btn = e.target.closest('.counter-btn');
+        const quickBtn = e.target.closest('.quick-add-btn');
+
+        if (btn) {
+          const key = btn.getAttribute('data-key');
+          const delta = parseInt(btn.getAttribute('data-delta'), 10);
+          adjustCount(key, delta);
+        } else if (quickBtn) {
+          const key = quickBtn.getAttribute('data-key');
+          adjustCount(key, 1);
+        }
+      });
+
+      // Preset Rates Click Handler (Delegation)
+      document.getElementById('presetRatesContainer').addEventListener('click', function(e) {
+        const btn = e.target.closest('.preset-rate-btn');
+        if (btn) {
+          const rate = parseFloat(btn.getAttribute('data-rate'));
+          document.getElementById('customRateInput').value = rate;
+          currentRate = rate;
+          document.getElementById('currentRateText').innerText = `匯率：1 TWD = ${currentRate} ${currencyConfigs[currentCurrency].code}`;
+          document.getElementById('ratePanel').classList.add('hidden');
+          runCalculation();
+        }
+      });
+
+      // Reset Paid Counts
+      document.getElementById('resetPaidBtn').addEventListener('click', resetPaidCounts);
+
+      // Exchange Rate Panel Events
+      document.getElementById('toggleRateBtn').addEventListener('click', function() {
+        document.getElementById('ratePanel').classList.toggle('hidden');
+      });
+      document.getElementById('closeRateBtn').addEventListener('click', function() {
+        document.getElementById('ratePanel').classList.add('hidden');
+      });
+      document.getElementById('saveRateBtn').addEventListener('click', function() {
+        const inputRate = parseFloat(document.getElementById('customRateInput').value);
+        if (inputRate && inputRate > 0) {
+          currentRate = inputRate;
+          document.getElementById('currentRateText').innerText = `匯率：1 TWD = ${currentRate} ${currencyConfigs[currentCurrency].code}`;
+          document.getElementById('ratePanel').classList.add('hidden');
+          runCalculation();
+        }
+      });
+    }
+
+    function adjustCount(key, delta) {
+      counts[key] = Math.max(0, (counts[key] || 0) + delta);
+      updateLiveStatus();
+    }
+
+    function resetPaidCounts() {
+      const cfg = currencyConfigs[currentCurrency];
+      cfg.denoms.forEach(d => {
+        counts[d.key] = 0;
+      });
+      updateLiveStatus();
+    }
+
+    function getNumericKrwInput() {
+      const raw = document.getElementById('krwInput').value.replace(/,/g, '');
+      let val = parseFloat(raw) || 0;
+      if (useThousandMode) {
+        val = val * 1000;
+      }
+      return val;
+    }
+
+    function runCalculation() {
+      const krw = getNumericKrwInput();
+      const cfg = currencyConfigs[currentCurrency];
+
+      // 1. TWD Conversion
+      const twd = Math.round(krw / currentRate);
+      document.getElementById('twdDisplay').innerText = `NT$ ${twd.toLocaleString()}`;
+
+      // 2. Dynamic Tax Refund Alert Badge
+      const taxTipEl = document.getElementById('taxRefundTip');
+      const taxTextEl = document.getElementById('taxRefundText');
+      const taxEstEl = document.getElementById('taxRefundEst');
+
+      const threshold = cfg.taxRefundThreshold;
+
+      if (krw <= 0 || !threshold) {
+        taxTipEl.classList.add('hidden');
+      } else if (krw >= threshold) {
+        taxTipEl.classList.remove('hidden');
+        taxTipEl.className = 'text-[11px] bg-emerald-50 border border-emerald-200 text-emerald-700 p-2 rounded-xl flex items-center justify-between mt-1 transition-all';
+        taxTextEl.innerHTML = `<i class="fa-solid fa-receipt text-emerald-600"></i> 已達 ${threshold.toLocaleString()} ${cfg.symbol} 退稅門檻！`;
+        let estRefund = Math.round(krw * 0.06);
+        taxEstEl.className = 'font-extrabold bg-emerald-600 text-white px-1.5 py-0.5 rounded text-[10px]';
+        taxEstEl.innerText = `預估退稅 ~ ${estRefund.toLocaleString()} ${cfg.symbol}`;
+      } else {
+        const diffRefund = threshold - krw;
+        taxTipEl.classList.remove('hidden');
+        taxTipEl.className = 'text-[11px] bg-rose-50 border border-rose-200 text-rose-700 p-2 rounded-xl flex items-center justify-between mt-1 transition-all';
+        taxTextEl.innerHTML = `<i class="fa-solid fa-receipt text-rose-500"></i> 退稅門檻 ${threshold.toLocaleString()} ${cfg.symbol}`;
+        taxEstEl.className = 'font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded text-[10px]';
+        taxEstEl.innerText = `還差 ${diffRefund.toLocaleString()} ${cfg.symbol}`;
+      }
+
+      if (krw <= 0) {
+        resetPaidCounts();
+        updateLiveStatus();
+        return;
+      }
+
+      const combo = calculateBestCombo(krw, payStrategy);
+
+      cfg.denoms.forEach(d => { counts[d.key] = 0; });
+      combo.forEach(item => {
+        if (counts[item.key] !== undefined) {
+          counts[item.key] = item.qty;
+        }
+      });
+
+      updateLiveStatus();
+    }
+
+    function calculateBestCombo(amount, strategy) {
+      if (amount <= 0) return [];
+      const cfg = currencyConfigs[currentCurrency];
+      const denoms = cfg.denoms;
+      const step = currentCurrency === 'KRW' ? 100 : 1000;
+      const target = Math.ceil(amount / step) * step;
+
+      if (strategy === 'big') {
+        const maxDenom = denoms[0]; // 50k for KRW or 500k for VND
+        const qty = Math.ceil(target / maxDenom.val);
+        return [{ key: maxDenom.key, qty: qty }];
+      }
+
+      if (strategy === 'fastest') {
+        let bestCombo = null;
+        let minItemCount = Infinity;
+        let minTotalPaid = Infinity;
+
+        // Try multiples of top 4 paper notes
+        const candidates = denoms.slice(0, 4).map(d => Math.ceil(target / d.val) * d.val);
+        const validAmounts = [...new Set(candidates.filter(amt => amt >= target))];
+
+        validAmounts.forEach(amt => {
+          let rem = amt;
+          let tempCombo = [];
+          let itemCount = 0;
+
+          denoms.forEach(d => {
+            let q = Math.floor(rem / d.val);
+            if (q > 0) {
+              tempCombo.push({ key: d.key, qty: q });
+              itemCount += q;
+              rem %= d.val;
+            }
+          });
+
+          if (rem === 0 && itemCount > 0) {
+            if (itemCount < minItemCount || (itemCount === minItemCount && amt < minTotalPaid)) {
+              minItemCount = itemCount;
+              minTotalPaid = amt;
+              bestCombo = tempCombo;
+            }
+          }
+        });
+
+        return bestCombo || [{ key: denoms[0].key, qty: Math.ceil(target / denoms[0].val) }];
+      }
+
+      // Default & Small Strategy: Greedy exact or minimal overpay
+      let rem = target;
+      let combo = [];
+      denoms.forEach(d => {
+        let q = Math.floor(rem / d.val);
+        if (q > 0) {
+          combo.push({ key: d.key, qty: q });
+          rem %= d.val;
+        }
+      });
+
+      if (rem > 0) {
+        for (let i = denoms.length - 1; i >= 0; i--) {
+          if (denoms[i].val >= rem) {
+            let item = combo.find(c => c.key === denoms[i].key);
+            if (item) item.qty += 1;
+            else combo.push({ key: denoms[i].key, qty: 1 });
+            break;
+          }
+        }
+      }
+
+      return combo;
+    }
+
+    function updateMoneyUI() {
+      const cfg = currencyConfigs[currentCurrency];
+      cfg.denoms.forEach(d => {
+        const cntEl = document.getElementById(`cnt-${d.key}`);
+        const cardEl = document.getElementById(`card-${d.key}`);
+        const val = counts[d.key] || 0;
+        
+        if (cntEl) {
+          cntEl.innerText = val;
+          if (val > 0) {
+            cntEl.className = "w-5 text-center font-black text-base text-select-text transition-all scale-110";
+          } else {
+            cntEl.className = "w-5 text-center font-bold text-sm text-main-muted transition-all scale-100";
+          }
+        }
+
+        if (cardEl) {
+          if (val > 0) {
+            cardEl.className = "note-card flex items-center justify-between p-1.5 px-2 rounded-xl bg-select-bg border-2 border-select-border shadow-xs transition-all";
+          } else {
+            cardEl.className = "note-card flex items-center justify-between p-1.5 px-2 rounded-xl bg-white border border-main-border hover:border-main-sub transition-all shadow-2xs";
+          }
+        }
+      });
+    }
+
+    function updateLiveStatus() {
+      updateMoneyUI();
+      const amount = getNumericKrwInput();
+      const cfg = currencyConfigs[currentCurrency];
+      const statusCard = document.getElementById('liveStatusCard');
+      const paidTotalText = document.getElementById('livePaidTotal');
+      const statusMsg = document.getElementById('liveStatusMessage');
+      const verifyDetail = document.getElementById('changeVerificationDetail');
+
+      let totalPaid = 0;
+      cfg.denoms.forEach(d => {
+        totalPaid += (counts[d.key] || 0) * d.val;
+      });
+
+      paidTotalText.innerText = `${totalPaid.toLocaleString()} ${cfg.symbol}`;
+
+      if (totalPaid === 0 && amount === 0) {
+        statusCard.className = 'p-3.5 rounded-2xl border bg-cream border-main-border transition-all mb-3 text-center';
+        statusMsg.className = 'text-xs font-semibold text-main-muted mt-1';
+        statusMsg.innerText = '請於上方輸入金額或點擊下方鈔票/硬幣';
+        verifyDetail.classList.add('hidden');
+        return;
+      }
+
+      const diff = totalPaid - amount;
+
+      if (amount > 0 && totalPaid < amount) {
+        const shortfall = amount - totalPaid;
+        statusCard.className = 'p-3.5 rounded-2xl border bg-warning-bg border-warning-border text-warning-text transition-all mb-3 text-center shadow-xs';
+        statusMsg.className = 'text-base font-black text-warning-text mt-0.5 flex items-center justify-center gap-1.5';
+        statusMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> 還差 ${shortfall.toLocaleString()} ${cfg.symbol}`;
+        verifyDetail.classList.add('hidden');
+      } else if (diff === 0 && amount > 0) {
+        statusCard.className = 'p-3.5 rounded-2xl border bg-success-bg border-success-border text-success-text transition-all mb-3 text-center shadow-xs';
+        statusMsg.className = 'text-base font-black text-success-text mt-0.5 flex items-center justify-center gap-1.5';
+        statusMsg.innerHTML = `<i class="fa-solid fa-circle-check"></i> 剛好付款 ✓ (不用找零)`;
+        verifyDetail.classList.add('hidden');
+      } else if (diff > 0) {
+        statusCard.className = 'p-3.5 rounded-2xl border bg-success-bg border-success-border text-success-text transition-all mb-3 text-center shadow-xs';
+        statusMsg.className = 'text-base font-black text-success-text mt-0.5 flex items-center justify-center gap-1.5';
+        statusMsg.innerHTML = `<i class="fa-solid fa-hand-holding-dollar"></i> 應找：${diff.toLocaleString()} ${cfg.symbol}`;
+
+        verifyDetail.classList.remove('hidden');
+        document.getElementById('changeDetailList').innerHTML = formatChangeBreakdownHTML(diff);
+      } else {
+        statusCard.className = 'p-3.5 rounded-2xl border bg-cream border-main-border transition-all mb-3 text-center';
+        statusMsg.className = 'text-xs font-semibold text-main-muted mt-1';
+        statusMsg.innerText = '請於上方輸入金額或點擊下方鈔票/硬幣';
+        verifyDetail.classList.add('hidden');
+      }
+    }
+
+    function formatChangeBreakdownHTML(amount) {
+      let rem = amount;
+      let parts = [];
+      const cfg = currencyConfigs[currentCurrency];
+      cfg.denoms.forEach(d => {
+        const qty = Math.floor(rem / d.val);
+        if (qty > 0) {
+          parts.push(`
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-extrabold ${d.tagBg} shadow-2xs">
+              ${d.fullLabel} <span class="bg-white/20 px-1 py-0.2 rounded text-[10px]">×${qty}</span>
+            </span>
+          `);
+          rem %= d.val;
+        }
+      });
+      return parts.length > 0 
+        ? `<div class="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">${parts.join('')}</div>` 
+        : `<span class="font-extrabold text-main-text">${amount.toLocaleString()} ${cfg.symbol}</span>`;
+    }
+
+    document.addEventListener('DOMContentLoaded', initApp);
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+      initApp();
+    }
+  </script>
+</body>
+</html>
