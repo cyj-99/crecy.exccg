@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🇻🇳 越南盾智慧付款與找零助手</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Noto Sans TC', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#FFF3EC',   // 極淺橘
+              100: '#F4B28F',  // 淺橘
+              500: '#E98B5B',  // 柔霧橘 (品牌主色)
+              600: '#B85C35',  // 深橘
+            },
+            cream: '#FFFBF8',   // 奶油白背景
+            select: {
+              bg: '#EEF2FF',     // 選取背景
+              border: '#818CF8', // 選取外框
+              text: '#4F46E5',   // 操作/選取文字
+            },
+            success: {
+              bg: '#ECFDF5',     // 成功背景
+              border: '#86E7B8', // 成功外框
+              text: '#2F855F',   // 成功文字
+            },
+            warning: {
+              bg: '#FFFBEB',     // 提醒背景
+              border: '#FCD34D', // 提醒外框
+              text: '#D97706',   // 提醒文字
+            },
+            main: {
+              text: '#172033',   // 主要文字
+              sub: '#64748B',    // 次要文字
+              muted: '#94A3B8',  // 未選/弱化文字
+              border: '#DCE3ED', // 一般外框
+            },
+            vnd: {
+              500: '#2855D9',  // 500,000 ₫ 深藍
+              200: '#C94E1B',  // 200,000 ₫ 紅褐
+              100: '#348747',  // 100,000 ₫ 墨綠
+              50: '#C1285B',   // 50,000 ₫  亮粉紅
+              20: '#368BC5',   // 20,000 ₫  寶藍
+              10: '#B85A17',   // 10,000 ₫  黃褐
+              5: '#6726AE'     // 5,000 ₫   紫色
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      background-color: #FFF3EC;
+    }
+    .card-shadow {
+      box-shadow: 0 4px 18px -2px rgba(184, 92, 53, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+    }
+    .active-scale:active {
+      transform: scale(0.96);
+    }
+    input:focus {
+      outline: none;
+    }
+  </style>
+</head>
+<body class="h-full text-main-text font-sans flex justify-center items-start sm:items-center p-0 sm:p-4 min-h-screen">
+
+  <!-- Main Container -->
+  <div class="w-full max-w-md bg-cream sm:rounded-3xl shadow-xl overflow-hidden border border-main-border min-h-screen sm:min-h-0 flex flex-col justify-between">
+    
+    <!-- Top Header (Soft Warm Orange) -->
+    <header class="bg-brand-500 text-white p-4 text-center relative shadow-sm">
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-[11px] font-bold px-2.5 py-0.5 bg-white/20 text-white rounded-full flex items-center gap-1">
+          <i class="fa-solid fa-plane-departure text-[10px]"></i> 越南旅遊神隊友
+        </span>
+        <!-- Dynamic Exchange Rate Button -->
+        <button id="toggleRateBtn" class="text-xs bg-white/20 hover:bg-white/30 text-white px-2.5 py-1 rounded-full transition flex items-center gap-1.5 border border-white/20 active-scale">
+          <i class="fa-solid fa-pen-to-square text-[11px]"></i> 
+          <span id="currentRateText">匯率：1 TWD = 780 VND</span>
+        </button>
+      </div>
+
+      <h1 class="text-xl sm:text-2xl font-black text-white tracking-wide flex items-center justify-center gap-2 mt-1">
+        <span>🇻🇳</span> 越南盾智慧付款助手
+      </h1>
+      
+      <!-- Editable Exchange Rate Panel -->
+      <div id="ratePanel" class="hidden mt-3 p-3 bg-white rounded-2xl border border-brand-100 text-left text-xs transition-all shadow-xl text-main-text">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold text-brand-600 flex items-center gap-1">
+            <i class="fa-solid fa-calculator text-brand-500"></i> 設定當前換匯匯率
+          </span>
+          <button id="closeRateBtn" class="text-main-muted hover:text-main-sub p-1"><i class="fa-solid fa-xmark text-sm"></i></button>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-main-sub whitespace-nowrap">1 台幣 (TWD) =</span>
+          <input type="number" id="customRateInput" value="780" class="w-24 bg-cream border border-main-border rounded-lg px-2 py-1.5 text-center text-main-text font-bold text-sm focus:border-brand-500">
+          <span class="text-main-sub">VND</span>
+          <button id="saveRateBtn" class="bg-brand-500 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg font-bold ml-auto active-scale transition">儲存</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="p-4 space-y-3.5 flex-1 overflow-y-auto bg-cream">
+
+      <!-- SECTION 1: Input Amount & Strategy Tabs -->
+      <section class="bg-white rounded-2xl p-4 card-shadow border border-main-border">
+        <div class="flex justify-between items-center mb-1">
+          <label for="vndInput" class="text-xs font-extrabold text-main-text tracking-wide flex items-center gap-1.5">
+            <i class="fa-solid fa-tag text-brand-500"></i> 今天要付多少錢？
+          </label>
+          <button id="clearBtn" class="text-xs text-main-muted hover:text-rose-500 transition">
+            清空
+          </button>
+        </div>
+
+        <!-- Amount Input Box Container (Pre-filled with ,000) -->
+        <div class="flex items-center bg-cream border-2 border-main-border focus-within:border-brand-500 rounded-2xl py-2 px-3.5 transition my-1.5">
+          <input type="text" id="vndInput" placeholder="0" inputmode="numeric" 
+                 class="w-full bg-transparent text-3xl font-black text-right tracking-tight text-main-text outline-none">
+          <span class="text-3xl font-black text-main-text whitespace-nowrap select-none pl-1">
+            ,000 ₫
+          </span>
+        </div>
+
+        <!-- TWD Sub-info -->
+        <div class="flex justify-between items-center text-xs px-1 mb-3 text-main-sub border-b border-cream pb-2">
+          <span>折合台幣試算</span>
+          <span id="twdDisplay" class="font-extrabold text-main-text text-sm">NT$ 0</span>
+        </div>
+
+        <!-- Strategy Selector Tabs (2x2 Grid) -->
+        <div class="space-y-2">
+          <div class="text-[11px] font-bold text-main-sub flex justify-between items-center">
+            <span>選擇付款策略：</span>
+            <span id="currentModeLabel" class="text-select-text font-extrabold text-[11px]">💡 建議付款 (標準組合)</span>
+          </div>
+          <div class="grid grid-cols-2 gap-1.5 bg-cream p-1.5 rounded-xl text-xs border border-main-border">
+            <button id="modeSuggestBtn" class="pay-mode-btn py-2 px-2 rounded-lg font-extrabold text-select-text bg-select-bg border-2 border-select-border shadow-2xs transition text-center active-scale" data-mode="suggested">
+              💡 建議付款
+            </button>
+            <button id="modeFastBtn" class="pay-mode-btn py-2 px-2 rounded-lg font-medium text-main-sub bg-white border border-main-border hover:bg-cream transition text-center active-scale" data-mode="fastest">
+              ⚡ 最快付款
+            </button>
+            <button id="modeBigBtn" class="pay-mode-btn py-2 px-2 rounded-lg font-medium text-main-sub bg-white border border-main-border hover:bg-cream transition text-center active-scale" data-mode="big">
+              💵 只有大鈔
+            </button>
+            <button id="modeSmallBtn" class="pay-mode-btn py-2 px-2 rounded-lg font-medium text-main-sub bg-white border border-main-border hover:bg-cream transition text-center active-scale" data-mode="small">
+              🪙 優先用小鈔
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: My Payment Combination & Live Verification Card -->
+      <section class="bg-white rounded-2xl p-4 card-shadow border border-main-border">
+        <div class="flex justify-between items-center mb-2.5">
+          <label class="text-xs font-extrabold text-main-text tracking-wide flex items-center gap-1.5">
+            <i class="fa-solid fa-wallet text-brand-500"></i> 我的付款組合
+          </label>
+          <button id="resetPaidBtn" class="text-[11px] text-main-muted hover:text-main-sub transition">
+            重設張數
+          </button>
+        </div>
+
+        <!-- Live Status Card -->
+        <div id="liveStatusCard" class="p-3.5 rounded-2xl border bg-cream border-main-border transition-all mb-3 text-center">
+          <div class="text-xs text-main-sub mb-0.5">你共拿出：<strong id="livePaidTotal" class="text-main-text text-sm font-black">0 ₫</strong></div>
+          <div id="liveStatusMessage" class="text-xs font-semibold text-main-muted mt-1">
+            請於上方輸入金額或調整下方鈔票
+          </div>
+
+          <!-- Change Detail Breakdown Box (Moved inside Status Card) -->
+          <div id="changeVerificationDetail" class="hidden mt-2.5 pt-2.5 border-t border-success-border/50 text-xs space-y-1">
+            <div class="font-extrabold flex items-center justify-center gap-1.5 text-success-text">
+              <i class="fa-solid fa-eye"></i> 點收找零：
+            </div>
+            <div id="changeDetailList" class="font-medium text-main-text"></div>
+          </div>
+        </div>
+
+        <!-- 2-Column Grid for Banknote Counters -->
+        <div class="grid grid-cols-2 gap-2" id="payCounterGrid">
+          <!-- Dynamically populated rows -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-main-border p-2.5 text-center text-[10px] text-main-muted">
+      <p class="flex items-center justify-center gap-1">
+        💡 提示：點擊右上角選單選擇「加入主畫面」，即可當成 App 使用
+      </p>
+    </footer>
+
+  </div>
+
+  <script>
+    // Banknote definitions with exact visual tag colors according to spec
+    const denoms = [
+      { key: '500k', val: 500000, label: "500,000", fullLabel: "500,000 ₫", tagBg: "bg-vnd-500 text-white" },
+      { key: '200k', val: 200000, label: "200,000", fullLabel: "200,000 ₫", tagBg: "bg-vnd-200 text-white" },
+      { key: '100k', val: 100000, label: "100,000", fullLabel: "100,000 ₫", tagBg: "bg-vnd-100 text-white" },
+      { key: '50k',  val: 50000,  label: "50,000",  fullLabel: "50,000 ₫",  tagBg: "bg-vnd-50 text-white"  },
+      { key: '20k',  val: 20000,  label: "20,000",  fullLabel: "20,000 ₫",  tagBg: "bg-vnd-20 text-white"  },
+      { key: '10k',  val: 10000,  label: "10,000",  fullLabel: "10,000 ₫",  tagBg: "bg-vnd-10 text-white"  },
+      { key: '5k',   val: 5000,   label: "5,000",   fullLabel: "5,000 ₫",   tagBg: "bg-vnd-5 text-white"   }
+    ];
+
+    // State Variables
+    let counts = { '500k': 0, '200k': 0, '100k': 0, '50k': 0, '20k': 0, '10k': 0, '5k': 0 };
+    let currentRate = 780; // TWD rate
+    let payStrategy = 'suggested'; // Modes: 'suggested', 'fastest', 'big', 'small'
+
+    // Initialization
+    function initApp() {
+      renderBanknoteGrid();
+      bindEventListeners();
+      runCalculation();
+    }
+
+    // Render 2-Column Compact Grid for Banknote Counters
+    function renderBanknoteGrid() {
+      const grid = document.getElementById('payCounterGrid');
+      grid.innerHTML = denoms.map(d => `
+        <div id="card-${d.key}" class="note-card flex items-center justify-between p-1.5 px-2 rounded-xl bg-white border border-main-border hover:border-main-sub transition-all shadow-2xs">
+          <button type="button" class="quick-add-btn px-2 py-1 rounded-lg text-[11px] font-black ${d.tagBg} shadow-2xs text-center whitespace-nowrap active-scale cursor-pointer" data-key="${d.key}">
+            ${d.fullLabel}
+          </button>
+          <div class="flex items-center gap-1">
+            <button type="button" class="counter-btn w-7 h-7 rounded-lg bg-cream border border-main-border text-main-text font-extrabold text-sm hover:bg-white active-scale flex items-center justify-center transition shadow-2xs" data-key="${d.key}" data-delta="-1">
+              -
+            </button>
+            <span class="w-5 text-center font-bold text-sm text-main-muted transition-all" id="cnt-${d.key}">0</span>
+            <button type="button" class="counter-btn w-7 h-7 rounded-lg bg-cream border border-main-border text-main-text font-extrabold text-sm hover:bg-white active-scale flex items-center justify-center transition shadow-2xs" data-key="${d.key}" data-delta="1">
+              +
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function bindEventListeners() {
+      const vndInput = document.getElementById('vndInput');
+
+      // Amount Input Formatting
+      vndInput.addEventListener('input', function() {
+        let cleanVal = this.value.replace(/[^0-9]/g, '');
+        if (cleanVal) {
+          this.value = parseInt(cleanVal, 10).toLocaleString('en-US');
+        } else {
+          this.value = '';
+        }
+        runCalculation();
+      });
+
+      // Clear Button
+      document.getElementById('clearBtn').addEventListener('click', function() {
+        vndInput.value = '';
+        resetPaidCounts();
+        runCalculation();
+      });
+
+      // Strategy Mode Switch Buttons (Selected state: Purple-Blue #EEF2FF / #818CF8 / #4F46E5)
+      const modeButtons = document.querySelectorAll('.pay-mode-btn');
+      modeButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+          payStrategy = this.getAttribute('data-mode');
+          
+          // Style update for strategy mode buttons
+          modeButtons.forEach(b => {
+            b.className = 'pay-mode-btn py-2 px-2 rounded-lg font-medium text-main-sub bg-white border border-main-border hover:bg-cream transition text-center active-scale';
+          });
+          this.className = 'pay-mode-btn py-2 px-2 rounded-lg font-extrabold text-select-text bg-select-bg border-2 border-select-border shadow-2xs transition text-center active-scale';
+
+          // Label update
+          const labelEl = document.getElementById('currentModeLabel');
+          if (payStrategy === 'suggested') {
+            labelEl.innerText = '💡 建議付款 (標準組合)';
+          } else if (payStrategy === 'fastest') {
+            labelEl.innerText = '⚡ 最快付款 (最少張數)';
+          } else if (payStrategy === 'big') {
+            labelEl.innerText = '💵 只有大鈔 (500k/200k)';
+          } else if (payStrategy === 'small') {
+            labelEl.innerText = '🪙 優先用小鈔 (消化零錢)';
+          }
+
+          runCalculation();
+        });
+      });
+
+      // Counter Grid Event Delegation (+ / - and Badge Tap)
+      document.getElementById('payCounterGrid').addEventListener('click', function(e) {
+        const btn = e.target.closest('.counter-btn');
+        const quickBtn = e.target.closest('.quick-add-btn');
+
+        if (btn) {
+          const key = btn.getAttribute('data-key');
+          const delta = parseInt(btn.getAttribute('data-delta'), 10);
+          adjustCount(key, delta);
+        } else if (quickBtn) {
+          const key = quickBtn.getAttribute('data-key');
+          adjustCount(key, 1);
+        }
+      });
+
+      // Reset Paid Counts
+      document.getElementById('resetPaidBtn').addEventListener('click', resetPaidCounts);
+
+      // Exchange Rate Panel Events
+      document.getElementById('toggleRateBtn').addEventListener('click', function() {
+        document.getElementById('ratePanel').classList.toggle('hidden');
+      });
+      document.getElementById('closeRateBtn').addEventListener('click', function() {
+        document.getElementById('ratePanel').classList.add('hidden');
+      });
+      document.getElementById('saveRateBtn').addEventListener('click', function() {
+        const inputRate = parseFloat(document.getElementById('customRateInput').value);
+        if (inputRate && inputRate > 0) {
+          currentRate = inputRate;
+          document.getElementById('currentRateText').innerText = `匯率：1 TWD = ${currentRate} VND`;
+          document.getElementById('ratePanel').classList.add('hidden');
+          runCalculation();
+        }
+      });
+    }
+
+    function adjustCount(key, delta) {
+      counts[key] = Math.max(0, counts[key] + delta);
+      updateLiveStatus();
+    }
+
+    function resetPaidCounts() {
+      denoms.forEach(d => {
+        counts[d.key] = 0;
+      });
+      updateLiveStatus();
+    }
+
+    // Returns full VND amount (input * 1,000 for thousand-preset rule)
+    function getNumericVndInput() {
+      const raw = document.getElementById('vndInput').value.replace(/,/g, '');
+      const val = parseFloat(raw) || 0;
+      return val * 1000;
+    }
+
+    function runCalculation() {
+      const vnd = getNumericVndInput();
+
+      // 1. TWD Conversion
+      const twd = Math.round(vnd / currentRate);
+      document.getElementById('twdDisplay').innerText = `NT$ ${twd.toLocaleString()}`;
+
+      if (vnd <= 0) {
+        resetPaidCounts();
+        updateLiveStatus();
+        return;
+      }
+
+      let suggestedList = [];
+      let totalPaid = 0;
+
+      if (payStrategy === 'big') {
+        // Only Big Notes Strategy (500k / 200k)
+        let rem = vnd;
+        if (rem > 0) {
+          let num500 = Math.ceil(rem / 500000);
+          if (num500 > 0 && (num500 * 500000) - rem < 300000) {
+            suggestedList.push({ denom: denoms[0], qty: num500 });
+            totalPaid = num500 * 500000;
+          } else {
+            let num200 = Math.ceil(rem / 200000);
+            suggestedList.push({ denom: denoms[1], qty: num200 });
+            totalPaid = num200 * 200000;
+          }
+        }
+      } else if (payStrategy === 'small') {
+        // Small Note Strategy (50k, 20k, 10k, 5k)
+        let rem = vnd;
+
+        // Cover large part with 100k
+        let num100k = Math.floor(rem / 100000);
+        if (num100k > 0) {
+          suggestedList.push({ denom: denoms[2], qty: num100k });
+          rem %= 100000;
+          totalPaid += num100k * 100000;
+        }
+
+        // Fill remaining with small bills
+        const smallDenoms = [denoms[3], denoms[4], denoms[5], denoms[6]]; // 50k, 20k, 10k, 5k
+        smallDenoms.forEach(d => {
+          const qty = Math.floor(rem / d.val);
+          if (qty > 0) {
+            suggestedList.push({ denom: d, qty: qty });
+            rem %= d.val;
+            totalPaid += qty * d.val;
+          }
+        });
+
+        if (rem > 0) {
+          for (let i = denoms.length - 1; i >= 0; i--) {
+            const d = denoms[i];
+            if (d.val >= rem) {
+              const existing = suggestedList.find(item => item.denom.key === d.key);
+              if (existing) {
+                existing.qty += 1;
+              } else {
+                suggestedList.push({ denom: d, qty: 1 });
+              }
+              totalPaid += d.val;
+              rem = 0;
+              break;
+            }
+          }
+        }
+      } else if (payStrategy === 'fastest') {
+        // 'fastest': 最快付款（進位整數大鈔，以最少張數掏錢）
+        let singleNote = denoms.slice().reverse().find(d => d.val >= vnd);
+        
+        // 若有單張面額涵蓋且溢繳合理（或小於 100k），直接付該單張鈔票
+        if (singleNote && (singleNote.val <= vnd * 1.5 || vnd <= 100000)) {
+          suggestedList.push({ denom: singleNote, qty: 1 });
+          totalPaid = singleNote.val;
+        } else {
+          // 否則自動無條件進位至最近的 50k 或 100k 大鈔整數
+          let step = vnd >= 200000 ? 100000 : 50000;
+          let ceilVnd = Math.ceil(vnd / step) * step;
+          let rem = ceilVnd;
+          
+          // 只使用大鈔面額 (500k, 200k, 100k, 50k) 組合
+          const majorDenoms = [denoms[0], denoms[1], denoms[2], denoms[3]];
+          majorDenoms.forEach(d => {
+            const qty = Math.floor(rem / d.val);
+            if (qty > 0) {
+              suggestedList.push({ denom: d, qty: qty });
+              rem %= d.val;
+              totalPaid += qty * d.val;
+            }
+          });
+          
+          if (rem > 0) {
+            for (let i = denoms.length - 1; i >= 0; i--) {
+              const d = denoms[i];
+              if (d.val >= rem) {
+                const existing = suggestedList.find(item => item.denom.key === d.key);
+                if (existing) {
+                  existing.qty += 1;
+                } else {
+                  suggestedList.push({ denom: d, qty: 1 });
+                }
+                totalPaid += d.val;
+                break;
+              }
+            }
+          }
+        }
+      } else {
+        // 'suggested': 建議付款（標準組合，儘量精確不找零）
+        let rem = vnd;
+        denoms.forEach(d => {
+          const qty = Math.floor(rem / d.val);
+          if (qty > 0) {
+            suggestedList.push({ denom: d, qty: qty });
+            rem %= d.val;
+            totalPaid += qty * d.val;
+          }
+        });
+
+        if (rem > 0) {
+          for (let i = denoms.length - 1; i >= 0; i--) {
+            const d = denoms[i];
+            if (d.val >= rem) {
+              const existing = suggestedList.find(item => item.denom.key === d.key);
+              if (existing) {
+                existing.qty += 1;
+              } else {
+                suggestedList.push({ denom: d, qty: 1 });
+              }
+              totalPaid += d.val;
+              rem = 0;
+              break;
+            }
+          }
+        }
+      }
+
+      // Pre-fill payment banknote counts directly into "我的付款組合"
+      denoms.forEach(d => { counts[d.key] = 0; });
+      suggestedList.forEach(item => { counts[item.denom.key] = item.qty; });
+
+      updateLiveStatus();
+    }
+
+    function updateBanknoteUI() {
+      denoms.forEach(d => {
+        const cntEl = document.getElementById(`cnt-${d.key}`);
+        const cardEl = document.getElementById(`card-${d.key}`);
+        const val = counts[d.key] || 0;
+        
+        if (cntEl) {
+          cntEl.innerText = val;
+          if (val > 0) {
+            // Selected state: Purple-Blue font (#4F46E5)
+            cntEl.className = "w-5 text-center font-black text-base text-select-text transition-all scale-110";
+          } else {
+            // Unselected state: Muted gray font (#94A3B8)
+            cntEl.className = "w-5 text-center font-bold text-sm text-main-muted transition-all scale-100";
+          }
+        }
+
+        if (cardEl) {
+          if (val > 0) {
+            // Selected state: Light purple bg (#EEF2FF) + Purple-Blue border (#818CF8)
+            cardEl.className = "note-card flex items-center justify-between p-1.5 px-2 rounded-xl bg-select-bg border-2 border-select-border shadow-xs transition-all";
+          } else {
+            // Unselected state: White bg + Gray border (#DCE3ED)
+            cardEl.className = "note-card flex items-center justify-between p-1.5 px-2 rounded-xl bg-white border border-main-border hover:border-main-sub transition-all shadow-2xs";
+          }
+        }
+      });
+    }
+
+    function updateLiveStatus() {
+      updateBanknoteUI();
+      const vnd = getNumericVndInput();
+      const statusCard = document.getElementById('liveStatusCard');
+      const paidTotalText = document.getElementById('livePaidTotal');
+      const statusMsg = document.getElementById('liveStatusMessage');
+      const verifyDetail = document.getElementById('changeVerificationDetail');
+
+      let totalPaid = 0;
+      denoms.forEach(d => {
+        totalPaid += counts[d.key] * d.val;
+      });
+
+      paidTotalText.innerText = `${totalPaid.toLocaleString()} ₫`;
+
+      if (totalPaid === 0 && vnd === 0) {
+        statusCard.className = 'p-3.5 rounded-2xl border bg-cream border-main-border transition-all mb-3 text-center';
+        statusMsg.className = 'text-xs font-semibold text-main-muted mt-1';
+        statusMsg.innerText = '請於上方輸入金額或點擊下方鈔票';
+        verifyDetail.classList.add('hidden');
+        return;
+      }
+
+      const diff = totalPaid - vnd;
+
+      if (vnd > 0 && totalPaid < vnd) {
+        // Underpaid / Shortfall State (Amber-Yellow Warning #FFFBEB / #FCD34D / #D97706)
+        const shortfall = vnd - totalPaid;
+        statusCard.className = 'p-3.5 rounded-2xl border bg-warning-bg border-warning-border text-warning-text transition-all mb-3 text-center shadow-xs';
+        statusMsg.className = 'text-base font-black text-warning-text mt-0.5 flex items-center justify-center gap-1.5';
+        statusMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> 還差 ${shortfall.toLocaleString()} ₫`;
+        verifyDetail.classList.add('hidden');
+      } else if (diff === 0 && vnd > 0) {
+        // Exact Payment State (Success Green #ECFDF5 / #86E7B8 / #2F855F)
+        statusCard.className = 'p-3.5 rounded-2xl border bg-success-bg border-success-border text-success-text transition-all mb-3 text-center shadow-xs';
+        statusMsg.className = 'text-base font-black text-success-text mt-0.5 flex items-center justify-center gap-1.5';
+        statusMsg.innerHTML = `<i class="fa-solid fa-circle-check"></i> 剛好付款 ✓`;
+        verifyDetail.classList.add('hidden');
+      } else if (diff > 0) {
+        // Overpaid / Change Required State (Success Green #ECFDF5 / #86E7B8 / #2F855F)
+        statusCard.className = 'p-3.5 rounded-2xl border bg-success-bg border-success-border text-success-text transition-all mb-3 text-center shadow-xs';
+        statusMsg.className = 'text-base font-black text-success-text mt-0.5 flex items-center justify-center gap-1.5';
+        statusMsg.innerHTML = `<i class="fa-solid fa-hand-holding-dollar"></i> 應找：${diff.toLocaleString()} ₫`;
+
+        // Show expected change breakdown with color badges
+        verifyDetail.classList.remove('hidden');
+        document.getElementById('changeDetailList').innerHTML = formatChangeBreakdownHTML(diff);
+      } else {
+        statusCard.className = 'p-3.5 rounded-2xl border bg-cream border-main-border transition-all mb-3 text-center';
+        statusMsg.className = 'text-xs font-semibold text-main-muted mt-1';
+        statusMsg.innerText = '請於上方輸入金額或點擊下方鈔票';
+        verifyDetail.classList.add('hidden');
+      }
+    }
+
+    // Helper to format change breakdown into colored banknote pills (Preserving banknote tags)
+    function formatChangeBreakdownHTML(amount) {
+      let rem = amount;
+      let parts = [];
+      denoms.forEach(d => {
+        const qty = Math.floor(rem / d.val);
+        if (qty > 0) {
+          parts.push(`
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-extrabold ${d.tagBg} shadow-2xs">
+              ${d.fullLabel} <span class="bg-white/20 px-1 py-0.2 rounded text-[10px]">×${qty}</span>
+            </span>
+          `);
+          rem %= d.val;
+        }
+      });
+      return parts.length > 0 
+        ? `<div class="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">${parts.join('')}</div>` 
+        : `<span class="font-extrabold text-main-text">${amount.toLocaleString()} ₫</span>`;
+    }
+
+    // DOM Ready Entry
+    document.addEventListener('DOMContentLoaded', initApp);
+    if (document.readyState === 'interactive' || document.readyState === 'complete') {
+      initApp();
+    }
+  </script>
+</body>
+</html>
